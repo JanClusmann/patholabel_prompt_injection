@@ -105,7 +105,7 @@ data_wm <- data_wm %>%
 
 data_long_wm <- data_wm %>%
   pivot_longer(
-    cols = c(starts_with("score_"), starts_with("diag_")),
+    cols = c(starts_with("score_"), starts_with("diag_"), starts_with("flag_")),
     names_to = c(".value", "set"),
     names_pattern = "(.+)_(\\d+)$"
   ) %>%
@@ -204,9 +204,12 @@ suppl_path <- "C:/Users/janni/OneDrive/Dokumente/PostDoc/Projects/Patho Prompt I
 
 #Define Export summary statistics/Color Scheme
 ```{r}
-export_stats_to_excel <- function(excel_file, sheet_name, summary_stats, p_values, project_part, overwrite_sheet = TRUE) {
+export_stats_to_excel <- function(excel_file, sheet_name, summary_stats, p_values, project_part=NA, overwrite_sheet = TRUE) {
   wb <- loadWorkbook(excel_file)
   # Check if the sheet exists and handle according to overwrite_sheet parameter
+  # Automatically calculate and add the number of data points (n) to summary_stats
+  total_queries <- sum(summary_stats$n)
+  
   if (sheet_name %in% names(wb)) {
     if (overwrite_sheet) {
       removeWorksheet(wb, sheet_name)
@@ -222,8 +225,13 @@ export_stats_to_excel <- function(excel_file, sheet_name, summary_stats, p_value
   writeData(wb, sheet_name, x = paste("Summary statistics for Project Part:", project_part), startRow = 1, startCol = 1)
   writeData(wb, sheet_name, summary_stats, startRow = 2, startCol = 1)
   
+  #Write total n number
+  total_row <- nrow(summary_stats) + 4
+  writeData(wb, sheet_name, x = paste("Total number of individual queries =", total_queries), startRow = total_row, startCol = 1)
+  
+  
   # Write p-values
-  start_row <- nrow(summary_stats) + 4
+  start_row <- total_row + 2
   for (i in seq_along(p_values)) {
     writeData(wb, sheet_name, names(p_values)[i], startRow = start_row, startCol = 1)
     p_value_data <- p_values[[i]]
@@ -715,26 +723,57 @@ plots <- create_mitigation_plot(
   label_size = 16
 )
 ```
-# Stats Fig 2a:
+
+# Stats Fig 2a over all models:
 
 ```{r}
-summary_figure_2a <- data %>%
-  group_by(Label_Type, model_name) %>%
+summary_figure_2a <- data_long %>%
+  group_by(Label_Type, Project_Part) %>%
   summarize(
-    mean_accuracy=mean(score_mean, na.rm = TRUE),
-    sd_accuracy  =  sd(score_mean, na.rm = TRUE)
+    mean_accuracy=mean(score, na.rm = TRUE),
+    sd_accuracy  =  sd(score, na.rm = TRUE),
+    n             = n()
   )
 
 print(summary_figure_2a)
 
 
-figure_2a_test <- kruskal.test(score_mean ~ Label_Type, data = data )
+# Create a named list of p-values
+p_values_list <- list()
+
+# Use the function
+export_stats_to_excel(
+  excel_file = suppl_path,
+  sheet_name = "ST3 Stats Figure 2 combined",
+  summary_stats = summary_figure_2a,
+  p_values = p_values_list
+  
+)
+```
+
+
+
+# Stats Fig 2a:
+
+```{r}
+summary_figure_2a <- data_long %>%
+  group_by(Label_Type, model_name) %>%
+  summarize(
+    mean_accuracy=mean(score, na.rm = TRUE),
+    sd_accuracy  =  sd(score, na.rm = TRUE),
+    n             = n()
+  )
+
+print(summary_figure_2a)
+
+
+figure_2a_test <- kruskal.test(score ~ Label_Type, data = data_long )
 figure_2a_test$p.value <- round(figure_2a_test$p.value, 5)
 print(figure_2a_test)
 
 # Post-hoc analysis using Dunn test if Kruskal-Wallis test is significant
 
-dunn_test <- dunnTest(score_mean ~ Label_Type, data = data, method = "bonferroni")
+dunn_test <- dunnTest(score ~ Label_Type, data = data_long, method = "bonferroni")
 dunn_test$res$P.adj <- round(dunn_test$res$P.adj, 5)
 print(dunn_test)
 
@@ -774,25 +813,26 @@ for (i in seq_along(project_parts)) {
   figure_legend <- figure_legend_map[[project_part]] # Get the corresponding figure legend
   
   # Filter data for the current project part
-  subset_data <- data %>% filter(Project_Part == project_part)
+  subset_data <- data_long %>% filter(Project_Part == project_part)
   
   # Summary statistics
   summary_figure_2a <- subset_data %>%
     group_by(Label_Type, model_name) %>%
     summarize(
-      mean_accuracy = mean(score_mean, na.rm = TRUE),
-      sd_accuracy   = sd(score_mean, na.rm = TRUE)
+      mean_accuracy = mean(score, na.rm = TRUE),
+      sd_accuracy   = sd(score, na.rm = TRUE),
+      n             = n()
     )
   
   print(summary_figure_2a)
   
   # Kruskal-Wallis test
-  figure_2a_test <- kruskal.test(score_mean ~ Label_Type, data = subset_data)
+  figure_2a_test <- kruskal.test(score ~ Label_Type, data = subset_data)
   figure_2a_test$p.value <- round(figure_2a_test$p.value, 5)
   print(figure_2a_test)
   
   # Post-hoc Dunn test
-  dunn_test <- dunnTest(score_mean ~ Label_Type, data = subset_data, method = "bonferroni")
+  dunn_test <- dunnTest(score ~ Label_Type, data = subset_data, method = "bonferroni")
   dunn_test$res$P.adj <- round(dunn_test$res$P.adj, 5)
 
   print(dunn_test)
@@ -834,25 +874,26 @@ for (i in seq_along(project_parts)) {
   figure_legend <- figure_legend_map[[project_part]] # Get the corresponding figure legend
   
   # Filter data for the current project part
-  subset_data <- data %>% filter(Project_Part == project_part)
+  subset_data <- data_long %>% filter(Project_Part == project_part)
   
   # Summary statistics
   summary_figure_2a <- subset_data %>%
     group_by(Label_Type, model_name) %>%
     summarize(
-      mean_accuracy = mean(flag_mean, na.rm = TRUE),
-      sd_accuracy   = sd(flag_mean, na.rm = TRUE)
+      mean_accuracy = mean(flag, na.rm = TRUE),
+      sd_accuracy   = sd(flag, na.rm = TRUE),
+      n             = n()
     )
   
   print(summary_figure_2a)
   
   # Kruskal-Wallis test
-  figure_2a_test <- kruskal.test(flag_mean ~ Label_Type, data = subset_data)
+  figure_2a_test <- kruskal.test(flag ~ Label_Type, data = subset_data)
   figure_2a_test$p.value <- round(figure_2a_test$p.value, 5)
   print(figure_2a_test)
   
   # Post-hoc Dunn test
-  dunn_test <- dunnTest(flag_mean ~ Label_Type, data = subset_data, method = "bonferroni")
+  dunn_test <- dunnTest(flag ~ Label_Type, data = subset_data, method = "bonferroni")
   dunn_test$res$P.adj <- round(dunn_test$res$P.adj, 5)
 
   print(dunn_test)
@@ -901,9 +942,9 @@ for (i in seq_along(filters)) {
   
   # Filter data for the current subset
   subset_data <- if (is.null(filter_value)) {
-    data_wm # No filter for the "All" case
+    data_long_wm # No filter for the "All" case
   } else {
-    data_wm %>% filter(True_Prompt == filter_value)
+    data_long_wm %>% filter(True_Prompt == filter_value)
   }
   
   # Project part to be included in the header
@@ -913,19 +954,20 @@ for (i in seq_along(filters)) {
   summary_figure_3 <- subset_data %>%
     group_by(Label_Type, model_name) %>%
     summarize(
-      mean_accuracy = mean(score_mean, na.rm = TRUE),
-      sd_accuracy   = sd(score_mean, na.rm = TRUE)
+      mean_accuracy = mean(score, na.rm = TRUE),
+      sd_accuracy   = sd(score, na.rm = TRUE),
+      n             = n()
     )
   
   print(summary_figure_3)
   
   # Kruskal-Wallis test
-  figure_3_test <- kruskal.test(score_mean ~ Label_Type, data = subset_data)
+  figure_3_test <- kruskal.test(score ~ Label_Type, data = subset_data)
   figure_3_test$p.value <- round(figure_3_test$p.value, 5)
   print(figure_3_test)
   
   # Post-hoc Dunn test
-  dunn_test <- dunnTest(score_mean ~ Label_Type, data = subset_data, method = "bonferroni")
+  dunn_test <- dunnTest(score ~ Label_Type, data = subset_data, method = "bonferroni")
   dunn_test$res$P.adj <- round(dunn_test$res$P.adj, 5)
   
   print(dunn_test)
@@ -952,7 +994,6 @@ for (i in seq_along(filters)) {
 # Stats Fig 4
 
 ```{r}
-
 # Dictionary for project parts and figure legends
 figure_legend_map <- list(
   "Misleading Label" = "4a",
@@ -976,26 +1017,52 @@ for (i in seq_along(project_parts)) {
     group_by(Prompt_Engineering, model_name) %>%
     summarize(
       mean_accuracy = mean(score, na.rm = TRUE),
-      sd_accuracy   = sd(score, na.rm = TRUE)
+      sd_accuracy   = sd(score, na.rm = TRUE),
+      n             = n()
     )
   
   print(summary_figure_2a)
   
-  # Kruskal-Wallis test
-  figure_2a_test <- kruskal.test(score ~ Prompt_Engineering, data = subset_data)
-  figure_2a_test$p.value <- round(figure_2a_test$p.value, 5)
-  print(figure_2a_test)
+  # Initialize a list to store test results
+  model_test_results <- list()
   
-  # Post-hoc Dunn test
-  dunn_test <- dunnTest(score ~ Prompt_Engineering, data = subset_data, method = "bonferroni")
-  dunn_test$res$P.adj <- round(dunn_test$res$P.adj, 5)
-
-  print(dunn_test)
+  # Perform group comparisons for each model
+  unique_models <- unique(subset_data$model_name)
+  for (model in unique_models) {
+    model_data <- subset_data %>% filter(model_name == model)
+    
+    # Check if there are at least two groups in Prompt_Engineering
+    if (length(unique(model_data$Prompt_Engineering)) > 1) {
+      # Perform Wilcoxon rank-sum test (non-paired comparison)
+      group_test <- wilcox.test(
+        score ~ Prompt_Engineering,
+        data = model_data,
+        exact = FALSE # Approximation for larger sample sizes
+      )
+      
+      # Save results
+      model_test_results[[model]] <- list(
+        model_name = model,
+        p_value = round(group_test$p.value, 5),
+        test_statistic = group_test$statistic
+      )
+    } else {
+      model_test_results[[model]] <- list(
+        model_name = model,
+        p_value = NA,
+        test_statistic = NA
+      )
+    }
+  }
+  
+  # Convert test results to a data frame for easier reporting
+  model_test_results_df <- do.call(rbind, lapply(model_test_results, as.data.frame))
+  model_test_results_df <- data.frame(model_test_results_df, row.names = NULL)
+  print(model_test_results_df)
   
   # Create a named list of p-values
   p_values_list <- list(
-    "Kruskal-Wallis Test" = figure_2a_test,
-    "Dunn Test" = dunn_test$res
+    "Wilcoxon Rank-Sum Test" = model_test_results_df
   )
   
   project_part <- paste("Prompt_Engineering -", project_part)
@@ -1003,7 +1070,7 @@ for (i in seq_along(project_parts)) {
   # Export results to an Excel file with distinct sheet names
   export_stats_to_excel(
     excel_file = suppl_path,
-    sheet_name = paste0("ST ", 13 + i, " Figure " ,figure_legend, " Score"), # Dynamically name sheets using figure legend
+    sheet_name = paste0("ST ", 13 + i, " Figure ", figure_legend, " Score"), # Dynamically name sheets using figure legend
     summary_stats = summary_figure_2a,
     p_values = p_values_list,
     project_part = project_part
@@ -1012,6 +1079,63 @@ for (i in seq_along(project_parts)) {
 
 
 ```
+
+
+```{r}
+# Combine all data for Prompt Engineering comparison
+summary_figure_combined <- data_fig4 %>%
+  group_by(Prompt_Engineering) %>%
+  summarize(
+    mean_accuracy = mean(score, na.rm = TRUE),
+    sd_accuracy   = sd(score, na.rm = TRUE),
+    n             = n()
+  )
+
+print(summary_figure_combined)
+
+# Kruskal-Wallis test for Prompt Engineering (Yes vs No)
+figure_combined_test <- kruskal.test(score ~ Prompt_Engineering, data = data_fig4)
+figure_combined_test$p.value <- round(figure_combined_test$p.value, 5)
+print(figure_combined_test)
+
+# Post-hoc Dunn test for Prompt Engineering (Yes vs No)
+dunn_combined_test <- dunnTest(score ~ Prompt_Engineering, data = data_fig4, method = "bonferroni")
+dunn_combined_test$res$P.adj <- round(dunn_combined_test$res$P.adj, 5)
+print(dunn_combined_test)
+
+# Create a named list of p-values
+p_values_combined_list <- list(
+  "Kruskal-Wallis Test" = figure_combined_test,
+  "Dunn Test" = dunn_combined_test$res
+)
+
+# Export combined results to an Excel file
+export_stats_to_excel(
+  excel_file = suppl_path,
+  sheet_name = "ST 14 Figure 4d Score",  # Dynamically name the sheet
+  summary_stats = summary_figure_combined,
+  p_values = p_values_combined_list,
+  project_part = "Prompt Eng (Yes vs No)"
+)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # _______________________________
 
