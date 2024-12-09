@@ -1174,6 +1174,10 @@ library(patchwork)
 library(ggrepel)
 library(svglite)
 
+fig_path <- "C:/Users/janni/OneDrive/Dokumente/PostDoc/Projects/Patho Prompt Injection/Figures/"
+suppl_path <- "C:/Users/janni/OneDrive/Dokumente/PostDoc/Projects/Patho Prompt Injection/Supplementary_Material_1.xlsx"
+
+
 # Sample data including Total counts
 data <- data.frame(
   Group = c("COAD-READ", "KIRC", "KIRP", "HCC", "THCA", "BRCA", "OVCA", "UCEC", "PRAD"),
@@ -1210,7 +1214,7 @@ plot1 <- ggplot(data, aes(y = Percentage, x = Total)) +
   geom_text_repel(aes(label = paste(Group, sprintf("(%.1f%%)", Percentage))), 
                   size = 3, box.padding = 1.5, point.padding = 0,
                   nudge_x = 0, nudge_y = 2.5, segment.size=0.25, force=3, max.overlaps = Inf) +
-  labs(y = "Percentage with marks [%]", x = "Total slides evaluated") +
+  labs(y = "Slides with marks [%]", x = "Total slides") +
   theme_minimal() +
   theme(
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
@@ -1233,7 +1237,7 @@ plot2 <- ggplot(data2, aes(x = Group, y = Percentage, fill = Group)) +
   scale_color_manual(values = c("#E69F00", "#56B4E9")) +
   scale_fill_manual(values = c("#E69F00", "#56B4E9")) +
   scale_y_continuous(limits = c(0, 50), breaks = seq(0, 50, by = 10)) +
-  labs(y = "Percentage with marks [%]", x = "Groups") +
+  labs(y = "Slides with marks [%]", x = "Groups") +
   theme_minimal() +
   theme(
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
@@ -1254,7 +1258,7 @@ plot3 <- ggplot(data3, aes(x = Group, y = Percentage, fill = Group)) +
   scale_color_manual(values = c("#009E73", "#D55E00")) +
   scale_fill_manual(values = c("#009E73", "#D55E00")) +
   scale_y_continuous(limits = c(0, 100), breaks = seq(0, 100, by = 20)) +
-  labs(y = "Percentage with marks [%]", x = "Groups") +
+  labs(y = "Slides with marks [%]", x = "Groups") +
   theme_minimal() +
   theme(
     panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
